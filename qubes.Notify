@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+import gi
+import sys
+import os
+import re
+gi.require_version('Notify', '0.7')
+from gi.repository import Notify
+
+
+def valid_utf8(data):
+    try:
+        data.encode('utf-8', 'strict')
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
+def filter_items(notify_str):
+    # filter html tags
+    valid_str = re.sub('<.*?>', '', notify_str)
+    # drop special chars
+    valid_str = re.sub('[^a-zA-Z0-9\s.,]+', '_', valid_str)
+    return valid_str
+
+
+def split_items(notif_items):
+    # split header
+    list_items =  notif_items.split('\n', 1)
+    header = list(map(int, list_items[0].split(' ')))
+    # split and filter components
+    components = []
+    end_summary = header[0] + header[1] + 2
+    if header[2] > 120:
+        body = list_items[1][end_summary + 1:120] + "..."
+    else:
+        body = list_items[1][end_summary + 1:]
+    components.append(filter_items(list_items[1][1:header[0] + 1]))
+    components.append(filter_items(list_items[1][header[0] + 2:end_summary]))
+    components.append(filter_items(body))
+    return components
+
+
+def main():
+    os.environ.setdefault('DISPLAY', ':0.0')
+    env_vmname = os.environ.get("QREXEC_REMOTE_DOMAIN")
+    # read qrexec params
+    data = sys.stdin.read()
+    valid_utf8(data)
+    
+    items = split_items(data)
+    default_summary = items[1].strip()
+    summary = "{} : {}\n\n{}".format(env_vmname, items[0], default_summary)
+    body = items[2].strip()
+    
+    Notify.init(items[0])
+    if body:
+        Notify.Notification.new(
+            summary,
+            body,
+        ).show()
+    else:
+        Notify.Notification.new(summary).show()
+
+
+if __name__ == '__main__':
+    main()
