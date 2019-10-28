@@ -4,9 +4,7 @@ import dbus.service
 import dbus.mainloop.glib
 from gi.repository import GLib
 import subprocess
-import os
 import dbus
-
 
 class NotificationFetcher(dbus.service.Object):
     _id = 0
@@ -21,8 +19,8 @@ class NotificationFetcher(dbus.service.Object):
             notification_id = self._id
         # header containing len of app_name and summary
         header = "{} {}\n".format(len(app_name), len(summary))
-        # send header with all components to dom0
-        subprocess.call(["/usr/lib/qubes/qrexec-client-vm", "dom0", "qubes.Notify",
+        # send header with all components to GUI VM
+        subprocess.call(["/usr/lib/qubes/qrexec-client-vm", "gui", "qubes.TrayNotification",
                          "/bin/echo", header, app_name, summary, body])
         return notification_id
 
@@ -40,15 +38,12 @@ class NotificationFetcher(dbus.service.Object):
 
     @dbus.service.method("org.freedesktop.Notifications", in_signature='', out_signature='ssss')
     def GetServerInformation(self):
-        return "statnot", "http://code.k2h.se", "0.0.2", "1"
-
+        return "qubes.TrayNotification", "https://www.qubes-os.org/", "0.0", "1"
 
 if __name__ == '__main__':
-    
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     session_bus = dbus.SessionBus()
     name = dbus.service.BusName("org.freedesktop.Notifications", session_bus)
     nf = NotificationFetcher(session_bus, '/org/freedesktop/Notifications')
-     
     loop = GLib.MainLoop()
     loop.run()

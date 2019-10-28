@@ -5,8 +5,6 @@ import os
 import re
 import logging
 import textwrap
-import qubesappmenus
-import qubesadmin
 
 gi.require_version('Notify', '0.7')
 from gi.repository import Notify
@@ -49,44 +47,23 @@ def split_items(untrusted_items):
     return app_name, wrapped_summary, wrapped_body
 
 
-def path_to_icon(env_vmname, app_name):
-    # reuse appmenus icons in notification icon field
-    app = qubesadmin.Qubes()
-    vm = app.domains[env_vmname]
-    appmenusext = qubesappmenus.Appmenus()
-    icon_path = appmenusext.icons_dir(env_vmname)
-    icon_file = None
-    # get tuple (filename , displayname) from qubes-appmenus available icons
-    # to find the .png based on given app_name
-    for filename, displayname in appmenusext.get_available(vm):
-        if displayname == app_name:
-            icon_file = os.path.splitext(filename)[0] + ".png"
-    icon = os.path.join(icon_path, icon_file) if icon_file else None
-    return icon
-
-
 def main():
     os.environ.setdefault('DISPLAY', ':0.0')
     env_vmname = os.environ.get("QREXEC_REMOTE_DOMAIN")
     # get items from remote vm
     data = sys.stdin.read()
     app_name, default_summary, body = split_items(data)
-    icon = path_to_icon(env_vmname, app_name)
-    appname_summary = "{} - {} : {}".format(env_vmname, app_name, default_summary)
-    summary = "{} : {}".format(env_vmname, default_summary)
+    # dom0 notifications
+    if env_vmname is None:
+        env_vmname = "dom0"
+    if app_name == "":
+        app_name = default_summary
+        appname_summary = "{} : {}".format(env_vmname, default_summary)
+    else:
+        appname_summary = "{} - {} : {}".format(env_vmname, app_name, default_summary)
+
     Notify.init(app_name)
-    if body and icon:
-        Notify.Notification.new(
-            summary,
-            body,
-            icon
-        ).show()
-    elif icon:
-        Notify.Notification.new(
-            summary,
-            icon=icon
-        ).show()
-    elif body:
+    if body:
         Notify.Notification.new(
             appname_summary,
             body
